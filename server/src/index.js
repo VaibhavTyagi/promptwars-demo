@@ -1,0 +1,81 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const http = require('http');
+const { Server } = require('socket.io');
+const { initializeDatabase } = require('./db/init');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
+
+// Initialize database
+initializeDatabase();
+
+const app = express();
+const server = http.createServer(app);
+
+// Socket.io setup
+const io = new Server(server, {
+  cors: { origin: process.env.CORS_ORIGIN || 'http://localhost:5173', methods: ['GET', 'POST'] }
+});
+
+// Middleware
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173', credentials: true }));
+app.use(morgan('dev'));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, message: { error: 'Too many requests' } });
+app.use('/api/', limiter);
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
+});
+
+// API Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/venues', require('./routes/venues'));
+app.use('/api/events', require('./routes/events'));
+app.use('/api/amenities', require('./routes/amenities'));
+app.use('/api/orders', require('./routes/orders'));
+app.use('/api/incidents', require('./routes/incidents'));
+app.use('/api/staff', require('./routes/staff'));
+app.use('/api/dashboard', require('./routes/dashboard'));
+
+// Socket.io events
+io.on('connection', (socket) => {
+  console.log(`Client connected: ${socket.id}`);
+
+  socket.on('join-event', (eventId) => {
+    socket.join(`event:${eventId}`);
+    console.log(`${socket.id} joined event:${eventId}`);
+  });
+
+  socket.on('leave-event', (eventId) => {
+    socket.leave(`event:${eventId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+  });
+});
+
+// Make io accessible to routes
+app.set('io', io);
+
+// Error handling
+app.use(notFound);
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`\n🏟️  Venue Experience API running on http://localhost:${PORT}`);
+  console.log(`📡 WebSocket server ready`);
+  console.log(`📊 API docs: http://localhost:${PORT}/api/health\n`);
+});
+
+module.exports = { app, server, io };
