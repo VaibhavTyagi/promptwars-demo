@@ -22,7 +22,7 @@ const io = new Server(server, {
 
 // Middleware
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -66,6 +66,19 @@ io.on('connection', (socket) => {
 
 // Make io accessible to routes
 app.set('io', io);
+
+// Serve React static build in production
+const path = require('path');
+const clientBuildPath = path.join(__dirname, '../../client/dist');
+const fs = require('fs');
+if (fs.existsSync(clientBuildPath)) {
+  app.use(express.static(clientBuildPath));
+  // SPA fallback — serve index.html for any non-API route
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io')) return next();
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+}
 
 // Error handling
 app.use(notFound);
