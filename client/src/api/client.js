@@ -6,6 +6,15 @@ async function request(endpoint, options = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+
+  // Handle 401 globally — token expired or invalid
+  if (res.status === 401) {
+    if (typeof window.__authLogout === 'function') {
+      window.__authLogout();
+    }
+    throw new Error('Session expired. Please sign in again.');
+  }
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;

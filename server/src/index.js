@@ -12,6 +12,31 @@ const { errorHandler, notFound } = require('./middleware/errorHandler');
 // Initialize database
 initializeDatabase();
 
+// Check if database is seeded, if not, seed it
+const db = require('./db/init').getDb();
+const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+if (userCount === 0) {
+  console.log('Database not seeded, seeding...');
+  // Run seeding logic here
+  const { v4: uuidv4 } = require('uuid');
+  const bcrypt = require('bcryptjs');
+  const passwordHash = bcrypt.hashSync('password123', 10);
+  const users = [
+    { id: uuidv4(), email: 'sarah@example.com', first: 'Sarah', last: 'Johnson', role: 'attendee', tier: 'Silver', points: 2500 },
+    { id: uuidv4(), email: 'marcus@example.com', first: 'Marcus', last: 'Williams', role: 'attendee', tier: 'Platinum', points: 15000 },
+    { id: uuidv4(), email: 'jennifer@example.com', first: 'Jennifer', last: 'Chen', role: 'manager', tier: 'Gold', points: 5000 },
+    { id: uuidv4(), email: 'david@example.com', first: 'David', last: 'Martinez', role: 'security', tier: 'Bronze', points: 500 },
+    { id: uuidv4(), email: 'alex@example.com', first: 'Alex', last: 'Thompson', role: 'vendor', tier: 'Bronze', points: 200 },
+    { id: uuidv4(), email: 'admin@venue.com', first: 'Admin', last: 'User', role: 'admin', tier: 'Platinum', points: 0 },
+  ];
+  const insertUser = db.prepare(`INSERT INTO users (user_id, email, password_hash, first_name, last_name, role, loyalty_tier, loyalty_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  for (const u of users) {
+    insertUser.run(u.id, u.email, passwordHash, u.first, u.last, u.role, u.tier, u.points);
+  }
+  console.log('Database seeded with', users.length, 'users');
+}
+db.close();
+
 const app = express();
 const server = http.createServer(app);
 
