@@ -1,0 +1,34 @@
+# Dependencies - installed inside Docker
+node_modules
+**/node_modules
+
+# Build artifacts from local machine
+client/dist
+server/dist
+
+# Database files
+server/data
+*.db
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Git
+.git
+.gitignore
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
